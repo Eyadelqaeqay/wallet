@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدير المحفظة والديون</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-light: #f3f4f6;
+            --bg-dark: #1f2937;
+            --text-light: #111827;
+            --text-dark: #f9fafb;
+            --card-light: #ffffff;
+            --card-dark: #374151;
+            --border-light: #e5e7eb;
+            --border-dark: #4b5563;
+        }
+        html.dark {
+            color-scheme: dark;
+        }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-light);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        html.dark body {
+            background-color: var(--bg-dark);
+            color: var(--text-dark);
+        }
+        .card {
+            background-color: var(--card-light);
+            transition: background-color 0.3s;
+        }
+        html.dark .card {
+            background-color: var(--card-dark);
+        }
+        .form-input, .form-select {
+            background-color: var(--bg-light);
+            border-color: var(--border-light);
+        }
+        html.dark .form-input, html.dark .form-select {
+            background-color: var(--card-dark);
+            border-color: var(--border-dark);
+            color: var(--text-dark);
+        }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            transform: scale(0.9);
+            opacity: 0;
+            transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+        }
+        .modal-backdrop.flex {
+            display: flex;
+        }
+        .modal-backdrop.flex .modal-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 max-w-3xl">
+        <!-- Header & Theme Toggle -->
+        <header class="flex justify-between items-center mb-6">
+            <div class="text-center flex-grow">
+                <h1 class="text-3xl font-bold text-indigo-600 dark:text-indigo-400">مدير المحفظة والديون</h1>
+                <p class="text-gray-500 dark:text-gray-400 mt-1">تتبع أموالك، ديونك، وسلفك بكل سهولة</p>
+            </div>
+            <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                <!-- Sun Icon -->
+                <svg id="theme-icon-light" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                <!-- Moon Icon -->
+                <svg id="theme-icon-dark" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+            </button>
+        </header>
+
+        <!-- Main Dashboard -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="card p-4 rounded-lg shadow-md text-center">
+                <h2 class="text-lg font-semibold text-gray-500 dark:text-gray-300">المبالغ التي لك (سلف)</h2>
+                <p id="total-loans" class="text-2xl font-bold text-green-500 mt-2">0.00</p>
+            </div>
+            <div class="card p-4 rounded-lg shadow-md text-center">
+                <h2 class="text-lg font-semibold text-gray-500 dark:text-gray-300">المبالغ التي عليك (ديون)</h2>
+                <p id="total-debts" class="text-2xl font-bold text-red-500 mt-2">0.00</p>
+            </div>
+            <div class="card p-4 rounded-lg shadow-md text-center">
+                <h2 class="text-lg font-semibold text-gray-500 dark:text-gray-300">الصافي</h2>
+                <p id="net-position" class="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-2">0.00</p>
+            </div>
+        </div>
+
+        <!-- Add Transaction Form -->
+        <div class="card p-6 rounded-lg shadow-md mb-6">
+            <h2 class="text-xl font-bold mb-4 border-b pb-2 border-gray-200 dark:border-gray-600">إضافة معاملة جديدة</h2>
+            <form id="transaction-form" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="type" class="block text-sm font-medium text-gray-700 dark:text-gray-300">نوع المعاملة</label>
+                        <select id="type" name="type" class="form-select mt-1 block w-full p-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="loan">سلف (أعطيت مالاً)</option>
+                            <option value="debt">دين (أخذت مالاً)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="person" class="block text-sm font-medium text-gray-700 dark:text-gray-300">اسم الشخص</label>
+                        <input type="text" id="person" name="person" required class="form-input mt-1 block w-full p-2 border rounded-md shadow-sm" placeholder="مثال: محمد علي">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div>
+                        <label for="amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300">المبلغ (ج.م)</label>
+                        <input type="number" id="amount" name="amount" min="0.01" step="0.01" required class="form-input mt-1 block w-full p-2 border rounded-md shadow-sm" placeholder="150.50">
+                    </div>
+                    <div>
+                        <label for="due-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">تاريخ الاستحقاق (اختياري)</label>
+                        <input type="date" id="due-date" name="dueDate" class="form-input mt-1 block w-full p-2 border rounded-md shadow-sm">
+                    </div>
+                </div>
+                <div>
+                    <label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">ملاحظات</label>
+                    <textarea id="notes" name="notes" rows="2" class="form-input mt-1 block w-full p-2 border rounded-md shadow-sm" placeholder="مثال: ثمن وجبة غداء"></textarea>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-2.5 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 font-semibold transition-colors">
+                    حفظ المعاملة
+                </button>
+            </form>
+        </div>
+
+        <!-- Transactions List & Controls -->
+        <div class="card p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-bold mb-4 border-b pb-2 border-gray-200 dark:border-gray-600">سجل المعاملات</h2>
+            <!-- Filter Controls -->
+            <div class="flex flex-col md:flex-row gap-4 mb-4">
+                <input type="search" id="search-box" placeholder="ابحث بالاسم أو الملاحظات..." class="form-input flex-grow p-2 border rounded-md">
+                <select id="filter-select" class="form-select p-2 border rounded-md">
+                    <option value="all">كل المعاملات</option>
+                    <option value="loan">السلف فقط</option>
+                    <option value="debt">الديون فقط</option>
+                    <option value="overdue">فات موعدها</option>
+                </select>
+            </div>
+            <div id="transactions-list" class="space-y-3">
+                <!-- Transactions will be dynamically inserted here -->
+            </div>
+        </div>
+        
+        <!-- Data Management -->
+        <div class="card p-6 rounded-lg shadow-md mt-6">
+             <h2 class="text-xl font-bold mb-4 border-b pb-2 border-gray-200 dark:border-gray-600">إدارة البيانات</h2>
+             <div class="flex gap-4">
+                <button id="export-btn" class="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 font-semibold">تصدير البيانات</button>
+                <label for="import-file" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 font-semibold text-center cursor-pointer">
+                    استيراد البيانات
+                    <input type="file" id="import-file" class="hidden" accept=".json">
+                </label>
+             </div>
+        </div>
+
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="modal-backdrop">
+        <div class="modal-content card w-full max-w-sm m-4 p-6 rounded-lg shadow-xl text-center">
+            <h3 class="text-lg font-bold mb-2">تأكيد الحذف</h3>
+            <p class="text-gray-600 dark:text-gray-300 mb-6">هل أنت متأكد من حذف هذه المعاملة؟ لا يمكن التراجع عن هذا الإجراء.</p>
+            <div class="flex justify-center gap-4">
+                <button id="cancel-delete-btn" class="py-2 px-6 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500">إلغاء</button>
+                <button id="confirm-delete-btn" class="py-2 px-6 bg-red-600 text-white rounded-md hover:bg-red-700">حذف</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM Elements
+            const transactionForm = document.getElementById('transaction-form');
+            const transactionsList = document.getElementById('transactions-list');
+            const totalLoansEl = document.getElementById('total-loans');
+            const totalDebtsEl = document.getElementById('total-debts');
+            const netPositionEl = document.getElementById('net-position');
+            const searchBox = document.getElementById('search-box');
+            const filterSelect = document.getElementById('filter-select');
+            const themeToggle = document.getElementById('theme-toggle');
+            const themeIconLight = document.getElementById('theme-icon-light');
+            const themeIconDark = document.getElementById('theme-icon-dark');
+            const deleteModal = document.getElementById('delete-modal');
+            const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+            const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+            const exportBtn = document.getElementById('export-btn');
+            const importFile = document.getElementById('import-file');
+
+            let transactions = JSON.parse(localStorage.getItem('transactions_v2')) || [];
+            let transactionToDelete = null;
+
+            // --- Theme Management ---
+            const applyTheme = (theme) => {
+                if (theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    themeIconLight.classList.add('hidden');
+                    themeIconDark.classList.remove('hidden');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    themeIconLight.classList.remove('hidden');
+                    themeIconDark.classList.add('hidden');
+                }
+            };
+
+            const toggleTheme = () => {
+                const currentTheme = localStorage.getItem('theme') || 'light';
+                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                localStorage.setItem('theme', newTheme);
+                applyTheme(newTheme);
+            };
+
+            themeToggle.addEventListener('click', toggleTheme);
+            applyTheme(localStorage.getItem('theme') || 'light');
+
+
+            // --- Transaction Rendering ---
+            const renderTransactions = () => {
+                transactionsList.innerHTML = '';
+                const searchTerm = searchBox.value.toLowerCase();
+                const filterValue = filterSelect.value;
+                const now = new Date();
+
+                const filteredTransactions = transactions
+                    .filter(t => {
+                        const personMatch = t.person.toLowerCase().includes(searchTerm);
+                        const notesMatch = t.notes.toLowerCase().includes(searchTerm);
+                        return personMatch || notesMatch;
+                    })
+                    .filter(t => {
+                        if (filterValue === 'all') return true;
+                        if (filterValue === 'overdue') {
+                            return t.dueDate && new Date(t.dueDate) < now;
+                        }
+                        return t.type === filterValue;
+                    })
+                    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                if (filteredTransactions.length === 0) {
+                    transactionsList.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">لا توجد معاملات تطابق بحثك.</p>';
+                } else {
+                    filteredTransactions.forEach(transaction => {
+                        const isLoan = transaction.type === 'loan';
+                        const isOverdue = transaction.dueDate && new Date(transaction.dueDate) < now;
+                        const transactionEl = document.createElement('div');
+                        transactionEl.className = `fade-in p-4 rounded-lg flex items-start justify-between transition-all ${isLoan ? 'bg-green-50 dark:bg-green-900/50' : 'bg-red-50 dark:bg-red-900/50'} ${isOverdue ? 'border-l-4 border-red-500' : ''}`;
+                        
+                        const amountColor = isLoan ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+                        const typeText = isLoan ? 'لك من' : 'عليك لـ';
+
+                        let dueDateHtml = '';
+                        if(transaction.dueDate){
+                            const dueDate = new Date(transaction.dueDate);
+                            const formattedDueDate = dueDate.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+                            dueDateHtml = `<p class="text-xs ${isOverdue ? 'text-red-500 font-bold' : 'text-gray-500 dark:text-gray-400'} mt-1">تاريخ الاستحقاق: ${formattedDueDate}</p>`;
+                        }
+
+                        transactionEl.innerHTML = `
+                            <div class="flex-grow">
+                                <p class="font-bold text-lg ${amountColor}">${parseFloat(transaction.amount).toFixed(2)} ج.م</p>
+                                <p class="text-sm text-gray-700 dark:text-gray-200">${typeText} <span class="font-semibold">${transaction.person}</span></p>
+                                <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">${transaction.notes || ''}</p>
+                                ${dueDateHtml}
+                                <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">${new Date(transaction.date).toLocaleString('ar-EG')}</p>
+                            </div>
+                            <button data-id="${transaction.id}" class="delete-btn flex-shrink-0 text-gray-400 hover:text-red-500 focus:outline-none p-2">&times;</button>
+                        `;
+                        transactionsList.appendChild(transactionEl);
+                    });
+                }
+                updateSummary();
+            };
+
+            // --- Summary Update ---
+            const updateSummary = () => {
+                const loans = transactions.filter(t => t.type === 'loan').reduce((acc, t) => acc + parseFloat(t.amount), 0);
+                const debts = transactions.filter(t => t.type === 'debt').reduce((acc, t) => acc + parseFloat(t.amount), 0);
+                const netPosition = loans - debts;
+                const currency = " ج.م";
+
+                totalLoansEl.textContent = loans.toFixed(2) + currency;
+                totalDebtsEl.textContent = debts.toFixed(2) + currency;
+                netPositionEl.textContent = netPosition.toFixed(2) + currency;
+                
+                if (netPosition > 0) netPositionEl.className = 'text-2xl font-bold text-green-500 mt-2';
+                else if (netPosition < 0) netPositionEl.className = 'text-2xl font-bold text-red-500 mt-2';
+                else netPositionEl.className = 'text-2xl font-bold text-blue-600 dark:text-blue-400 mt-2';
+            };
+
+            // --- Transaction Management ---
+            const addTransaction = (e) => {
+                e.preventDefault();
+                const formData = new FormData(transactionForm);
+                const newTransaction = {
+                    id: crypto.randomUUID(),
+                    type: formData.get('type'),
+                    person: formData.get('person'),
+                    amount: parseFloat(formData.get('amount')),
+                    notes: formData.get('notes'),
+                    dueDate: formData.get('dueDate') || null,
+                    date: new Date().toISOString()
+                };
+                transactions.push(newTransaction);
+                saveAndRender();
+                transactionForm.reset();
+            };
+
+            const openDeleteModal = (id) => {
+                transactionToDelete = id;
+                deleteModal.classList.add('flex');
+            };
+
+            const closeDeleteModal = () => {
+                transactionToDelete = null;
+                deleteModal.classList.remove('flex');
+            };
+
+            const confirmDelete = () => {
+                if (transactionToDelete) {
+                    transactions = transactions.filter(t => t.id !== transactionToDelete);
+                    saveAndRender();
+                }
+                closeDeleteModal();
+            };
+
+            // --- Data Management ---
+            const exportData = () => {
+                if(transactions.length === 0) {
+                    alert('لا توجد بيانات لتصديرها.');
+                    return;
+                }
+                const dataStr = JSON.stringify(transactions, null, 2);
+                const dataBlob = new Blob([dataStr], {type: "application/json"});
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `wallet-data-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            };
+
+            const importData = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedTransactions = JSON.parse(e.target.result);
+                        // Basic validation
+                        if (Array.isArray(importedTransactions) && importedTransactions.every(t => t.id && t.person && t.amount && t.type)) {
+                            if(confirm('سيتم استبدال البيانات الحالية بالبيانات المستوردة. هل أنت متأكد؟')){
+                                transactions = importedTransactions;
+                                saveAndRender();
+                                alert('تم استيراد البيانات بنجاح!');
+                            }
+                        } else {
+                            alert('ملف غير صالح أو تالف.');
+                        }
+                    } catch (error) {
+                        alert('خطأ في قراءة الملف. تأكد من أنه ملف JSON صالح.');
+                    }
+                };
+                reader.readAsText(file);
+                // Reset file input to allow importing the same file again
+                event.target.value = '';
+            };
+
+
+            // --- Utility ---
+            const saveAndRender = () => {
+                localStorage.setItem('transactions_v2', JSON.stringify(transactions));
+                renderTransactions();
+            };
+
+            // --- Event Listeners ---
+            transactionForm.addEventListener('submit', addTransaction);
+            searchBox.addEventListener('input', renderTransactions);
+            filterSelect.addEventListener('change', renderTransactions);
+            confirmDeleteBtn.addEventListener('click', confirmDelete);
+            cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+            exportBtn.addEventListener('click', exportData);
+            importFile.addEventListener('change', importData);
+
+            transactionsList.addEventListener('click', (e) => {
+                if (e.target.closest('.delete-btn')) {
+                    const button = e.target.closest('.delete-btn');
+                    openDeleteModal(button.dataset.id);
+                }
+            });
+
+            // Initial Render
+            renderTransactions();
+        });
+    </script>
+
+</body>
+</html>
